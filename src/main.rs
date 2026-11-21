@@ -1,8 +1,10 @@
 mod camera;
 mod field;
+mod robot;
 
 use camera::PanCamera;
 use field::Field;
+use robot::Robot;
 use macroquad::prelude::*;
 
 const GRID_STEP: f32 = 100.0;
@@ -18,9 +20,10 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let field = Field::from_str(include_str!("../assets/fields/field.json"))
+    let field = Field::from_str(include_str!("../assets/fields/test.json"))
         .expect("assets/field.json is not valid");
     let mut cam = PanCamera::new();
+    let mut robot = Robot::new();
     let mut last_mouse: Vec2 = mouse_position().into();
 
     loop {
@@ -39,11 +42,14 @@ async fn main() {
             cam.reset();
         }
 
+        robot.update();
+
         // --- Drawing ---------------------------------------------------------
         clear_background(Color::from_rgba(24, 28, 36, 255));
 
         draw_grid(&cam);
         field.render(&cam);
+        robot.render(&cam);
 
         let world_mouse = cam.screen_to_world(mouse);
         draw_text(
