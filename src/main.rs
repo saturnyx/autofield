@@ -1,13 +1,15 @@
 mod camera;
+mod field;
 
 use camera::PanCamera;
+use field::Field;
 use macroquad::prelude::*;
 
 const GRID_STEP: f32 = 100.0;
 
 fn window_conf() -> Conf {
     Conf {
-        window_title: "Drag the Camera".to_owned(),
+        window_title: "Autofield".to_owned(),
         window_width: 960,
         window_height: 640,
         ..Default::default()
@@ -16,6 +18,8 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let field = Field::from_str(include_str!("../assets/fields/field.json"))
+        .expect("assets/field.json is not valid");
     let mut cam = PanCamera::new();
     let mut last_mouse: Vec2 = mouse_position().into();
 
@@ -39,6 +43,7 @@ async fn main() {
         clear_background(Color::from_rgba(24, 28, 36, 255));
 
         draw_grid(&cam);
+        field.render(&cam);
 
         let world_mouse = cam.screen_to_world(mouse);
         draw_text(
