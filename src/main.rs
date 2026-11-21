@@ -1,9 +1,11 @@
 mod camera;
 mod field;
+mod physics;
 mod robot;
 
 use camera::PanCamera;
 use field::Field;
+use physics::Physics;
 use robot::Robot;
 use macroquad::prelude::*;
 
@@ -23,7 +25,9 @@ async fn main() {
     let field = Field::from_str(include_str!("../assets/fields/test.json"))
         .expect("assets/field.json is not valid");
     let mut cam = PanCamera::new();
-    let mut robot = Robot::new();
+    let mut physics = Physics::new();
+    field.spawn_hard_colliders(&mut physics);
+    let mut robot = Robot::new(&mut physics);
     let mut last_mouse: Vec2 = mouse_position().into();
 
     loop {
@@ -42,7 +46,9 @@ async fn main() {
             cam.reset();
         }
 
-        robot.update();
+        robot.drive(&mut physics);
+        physics.step(get_frame_time());
+        robot.sync(&physics);
 
         // --- Drawing ---------------------------------------------------------
         clear_background(Color::from_rgba(24, 28, 36, 255));

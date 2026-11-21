@@ -1,41 +1,50 @@
 use crate::camera::PanCamera;
+use crate::physics::Physics;
 use macroquad::prelude::*;
+use rapier2d::prelude::{ColliderBuilder, RigidBodyBuilder, RigidBodyHandle, Vector};
 
 const SIZE: f32 = 180.0;
-const MOVE_SPEED: f32 = 300.0; // world units per second
+const MOVE_SPEED: f32 = 3000.0; // world units per second
 const TURN_SPEED: f32 = 2.5;   // radians per second
 const OUTLINE: Color = Color::new(0.35, 0.70, 1.00, 1.0);
 
 /// A 180x180 differential-style robot: W/S drive it along its heading,
-/// A/D rotate it in place.
+/// A/D rotate it in place. The pose lives on a dynamic rapier body, so the
+/// robot slides along and stops against hard props instead of passing
+/// through them.
 pub struct Robot {
     pub pos: Vec2,
     pub heading: f32,
-}
-
-impl Default for Robot {
-    fn default() -> Self {
-        Self::new()
-    }
+    body: RigidBodyHandle,
 }
 
 impl Robot {
-    pub fn new() -> Self {
+    pub fn new(physics: &mut Physics) -> Self {
+        let half = SIZE / 2.0;
+        let (body, _) = physics.world.insert(
+            RigidBodyBuilder::dynamic()
+                .translation(Vector::new(0.0, 0.0))
+                .rotation(0.0),
+            ColliderBuilder::cuboid(half, half)
+                .friction(0.4)
+                .restitution(0.0),
+        );
         Self {
             pos: Vec2::ZERO,
             heading: 0.0,
+            body,
         }
     }
 
-    pub fn update(&mut self) {
-        let dt = get_frame_time();
-
+    /// Turns the driving keys into body velocities for this frame.
+    pub fn drive(&mut self, physics: &mut Physics) {
         // A turns left (counter-clockwise on screen), D turns right.
+        let mut turn = 0.0;
         if is_key_down(KeyCode::A) {
-            self.heading -= TURN_SPEED * dt;
+            turn -= TURN_SPEED;
         }
         if is_key_down(KeyCode::D) {
-            self.heading += TURN_SPEED * dt;
+            turn += TURN_SPEED;
         }
 
         let mut drive = 0.0;
@@ -45,7 +54,19 @@ impl Robot {
         if is_key_down(KeyCode::S) {
             drive -= 1.0;
         }
-        self.pos += vec2(self.heading.cos(), self.heading.sin()) * MOVE_SPEED * drive * dt;
+
+        let velocity = vec2(self.heading.cos(), self.heading.sin()) * MOVE_SPEED * drive;
+        let body = &mut physics.world.bodies[self.body];
+        body.set_angvel(turn, true);
+        body.set_linvel(Vector::new(velocity.x, velocity.y), true);
+    }
+
+    /// Copies the simulated pose back into the render state.
+    pub fn sync(&mut self, physics: &Physics) {
+        let body = &physics.world.bodies[self.body];
+        let t = body.translation();
+        self.pos = vec2(t.x, t.y);
+        self.heading = body.rotation().angle();
     }
 
     /// Draws the square, its heading direction and a driver-side accent,

@@ -1,4 +1,5 @@
 use crate::camera::PanCamera;
+use crate::physics::Physics;
 use macroquad::prelude::*;
 use serde::Deserialize;
 use serde_json::{Error, from_str};
@@ -16,6 +17,20 @@ pub struct Field {
 impl Field {
     pub fn from_str(file: &str) -> Result<Self, Error> {
         from_str(file)
+    }
+
+    /// Adds an immovable collider for every hard prop, so the robot bumps
+    /// into exactly the shapes that are drawn in dark orange. Soft props
+    /// stay purely decorative.
+    pub fn spawn_hard_colliders(&self, physics: &mut Physics) {
+        for prop in &self.hard_props {
+            let outline: Vec<(f64, f64)> = prop
+                .points
+                .iter()
+                .map(|&(x, y, _)| (x, y))
+                .collect();
+            physics.add_static_polyline(&outline);
+        }
     }
 
     /// Draws every prop through the camera. Soft props go first so the hard
