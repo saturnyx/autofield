@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Autofield</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #181c24;
+    }
+    /* miniquad's gl.js reads the canvas' CSS layout box to size its
+       backing store, so give it the full viewport explicitly. */
+    #glcanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- The canvas miniquad's gl.js binds to; tabindex lets it hold
+       keyboard focus so W/A/S/D reach the game. -->
+  <canvas id="glcanvas" tabindex="1"></canvas>
+  <script src="mq_js_bundle.js"></script>
+  <!-- gamepads crate web host plugin: bridges the browser Gamepad API into
+       the wasm binary. Must load after mq_js_bundle.js, before load(). -->
+  <script src="gamepads.js"></script>
+  <script>load("autofield.wasm");</script>
+</body>
+</html>
