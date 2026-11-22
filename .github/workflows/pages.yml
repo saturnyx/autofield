@@ -34,7 +34,7 @@ jobs:
 
       - name: Assemble the site
         run: |
-          mkdir dist
+          mkdir -p dist
           cp target/wasm32-unknown-unknown/release/autofield.wasm dist/autofield.wasm
           cp web/index.html dist/index.html
           cp web/mq_js_bundle.js dist/mq_js_bundle.js
