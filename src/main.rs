@@ -2,11 +2,13 @@ mod camera;
 mod field;
 mod physics;
 mod robot;
+mod tuning;
 
 use camera::PanCamera;
 use field::Field;
 use physics::Physics;
 use robot::Robot;
+use tuning::Tuning;
 use macroquad::prelude::*;
 
 const GRID_STEP: f32 = 100.0;
@@ -28,6 +30,7 @@ async fn main() {
     let mut physics = Physics::new();
     field.spawn_hard_colliders(&mut physics);
     let mut robot = Robot::new(&mut physics);
+    let mut tuning = Tuning::default();
     let mut last_mouse: Vec2 = mouse_position().into();
 
     loop {
@@ -35,19 +38,26 @@ async fn main() {
         let delta = mouse - last_mouse;
         last_mouse = mouse;
 
+        tuning.toggle();
+
         // --- Input -----------------------------------------------------------
-        if is_mouse_button_down(MouseButton::Left) {
+        // Don't pan/zoom while the cursor is over the tuning panel.
+        let on_panel = tuning.panel_contains(mouse);
+        if is_mouse_button_down(MouseButton::Left) && !on_panel {
             cam.pan(delta);
         }
 
-        cam.zoom_at(mouse, mouse_wheel().1);
+        if !on_panel {
+            cam.zoom_at(mouse, mouse_wheel().1);
+        }
 
         if is_key_pressed(KeyCode::R) {
             cam.reset();
         }
 
-        robot.drive(&mut physics);
-        physics.step(get_frame_time());
+        physics.set_restitution(tuning.restitution);
+        robot.drive(&mut physics, &tuning);
+        physics.step(get_frame_time() * tuning.time_scale);
         robot.sync(&physics);
 
         // --- Drawing ---------------------------------------------------------
@@ -56,6 +66,7 @@ async fn main() {
         draw_grid(&cam);
         field.render(&cam);
         robot.render(&cam);
+        tuning.draw();
 
         let world_mouse = cam.screen_to_world(mouse);
         draw_text(

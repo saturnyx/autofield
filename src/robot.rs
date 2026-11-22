@@ -1,14 +1,12 @@
 use crate::camera::PanCamera;
 use crate::physics::Physics;
+use crate::tuning::Tuning;
 use gamepads::{Button, Gamepads};
 use macroquad::prelude::*;
 use rapier2d::prelude::{ColliderBuilder, RigidBodyBuilder, RigidBodyHandle, Vector};
 
 const SIZE: f32 = 180.0;
-const MOVE_SPEED: f32 = 3000.0; // world units per second
-const TURN_SPEED: f32 = 2.5;   // radians per second
 const OUTLINE: Color = Color::new(0.35, 0.70, 1.00, 1.0);
-const STICK_DEADZONE: f32 = 0.15;
 
 /// The `gamepads` crate exposes "stick up" as +1 on web (its JS plugin flips
 /// the browser Gamepad API's y axis) but raw evdev gives -1 on desktop Linux
@@ -50,14 +48,14 @@ impl Robot {
 
     /// Turns the driving keys (WASD, or gamepad stick / D-pad) into body
     /// velocities for this frame.
-    pub fn drive(&mut self, physics: &mut Physics) {
+    pub fn drive(&mut self, physics: &mut Physics, tuning: &Tuning) {
         // A turns left (counter-clockwise on screen), D turns right.
         let mut turn = 0.0;
         if is_key_down(KeyCode::A) {
-            turn -= TURN_SPEED;
+            turn -= tuning.turn_speed;
         }
         if is_key_down(KeyCode::D) {
-            turn += TURN_SPEED;
+            turn += tuning.turn_speed;
         }
 
         let mut drive = 0.0;
@@ -74,10 +72,10 @@ impl Robot {
         for gamepad in self.gamepads.all() {
             let (sx, sy) = gamepad.left_stick();
             let stick_y = STICK_UP_SIGN * sy;
-            if sx.abs() > STICK_DEADZONE {
-                turn += sx * TURN_SPEED;
+            if sx.abs() > tuning.stick_deadzone {
+                turn += sx * tuning.turn_speed;
             }
-            if stick_y.abs() > STICK_DEADZONE {
+            if stick_y.abs() > tuning.stick_deadzone {
                 drive += stick_y;
             }
 
@@ -88,17 +86,17 @@ impl Robot {
                 drive -= 1.0;
             }
             if gamepad.is_currently_pressed(Button::DPadLeft) {
-                turn -= TURN_SPEED;
+                turn -= tuning.turn_speed;
             }
             if gamepad.is_currently_pressed(Button::DPadRight) {
-                turn += TURN_SPEED;
+                turn += tuning.turn_speed;
             }
         }
 
-        let turn = turn.clamp(-TURN_SPEED, TURN_SPEED);
+        let turn = turn.clamp(-tuning.turn_speed, tuning.turn_speed);
         let drive = drive.clamp(-1.0, 1.0);
 
-        let velocity = vec2(self.heading.cos(), self.heading.sin()) * MOVE_SPEED * drive;
+        let velocity = vec2(self.heading.cos(), self.heading.sin()) * tuning.drive_speed * drive;
         let body = &mut physics.world.bodies[self.body];
         body.set_angvel(turn, true);
         body.set_linvel(Vector::new(velocity.x, velocity.y), true);

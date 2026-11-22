@@ -62,6 +62,14 @@ impl Physics {
         self.world.integration_parameters.dt = dt.min(1.0 / 20.0);
         self.world.step();
     }
+
+    /// Applies `restitution` to every collider, so the tuning panel's
+    /// "wall bounce" slider takes effect immediately.
+    pub fn set_restitution(&mut self, restitution: f32) {
+        for (_, collider) in self.world.colliders.iter_mut() {
+            collider.set_restitution(restitution);
+        }
+    }
 }
 
 #[cfg(test)]
