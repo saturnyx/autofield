@@ -1,5 +1,6 @@
 use crate::camera::PanCamera;
 use crate::physics::Physics;
+use gamepads::{Button, Gamepads};
 use macroquad::prelude::*;
 use rapier2d::prelude::{ColliderBuilder, RigidBodyBuilder, RigidBodyHandle, Vector};
 
@@ -7,6 +8,15 @@ const SIZE: f32 = 180.0;
 const MOVE_SPEED: f32 = 3000.0; // world units per second
 const TURN_SPEED: f32 = 2.5;   // radians per second
 const OUTLINE: Color = Color::new(0.35, 0.70, 1.00, 1.0);
+const STICK_DEADZONE: f32 = 0.15;
+
+/// The `gamepads` crate exposes "stick up" as +1 on web (its JS plugin flips
+/// the browser Gamepad API's y axis) but raw evdev gives -1 on desktop Linux
+/// (gilrs does not normalize), so undo the flip to keep both targets alike.
+#[cfg(target_family = "wasm")]
+const STICK_UP_SIGN: f32 = 1.0;
+#[cfg(not(target_family = "wasm"))]
+const STICK_UP_SIGN: f32 = -1.0;
 
 /// A 180x180 differential-style robot: W/S drive it along its heading,
 /// A/D rotate it in place. The pose lives on a dynamic rapier body, so the
@@ -16,6 +26,7 @@ pub struct Robot {
     pub pos: Vec2,
     pub heading: f32,
     body: RigidBodyHandle,
+    gamepads: Gamepads,
 }
 
 impl Robot {
@@ -33,10 +44,12 @@ impl Robot {
             pos: Vec2::ZERO,
             heading: 0.0,
             body,
+            gamepads: Gamepads::new(),
         }
     }
 
-    /// Turns the driving keys into body velocities for this frame.
+    /// Turns the driving keys (WASD, or gamepad stick / D-pad) into body
+    /// velocities for this frame.
     pub fn drive(&mut self, physics: &mut Physics) {
         // A turns left (counter-clockwise on screen), D turns right.
         let mut turn = 0.0;
@@ -54,6 +67,36 @@ impl Robot {
         if is_key_down(KeyCode::S) {
             drive -= 1.0;
         }
+
+        // Left thumbstick is a fully analog drive/steer. The D-pad mirrors
+        // WASD for digital-only gamepads.
+        self.gamepads.poll();
+        for gamepad in self.gamepads.all() {
+            let (sx, sy) = gamepad.left_stick();
+            let stick_y = STICK_UP_SIGN * sy;
+            if sx.abs() > STICK_DEADZONE {
+                turn += sx * TURN_SPEED;
+            }
+            if stick_y.abs() > STICK_DEADZONE {
+                drive += stick_y;
+            }
+
+            if gamepad.is_currently_pressed(Button::DPadUp) {
+                drive += 1.0;
+            }
+            if gamepad.is_currently_pressed(Button::DPadDown) {
+                drive -= 1.0;
+            }
+            if gamepad.is_currently_pressed(Button::DPadLeft) {
+                turn -= TURN_SPEED;
+            }
+            if gamepad.is_currently_pressed(Button::DPadRight) {
+                turn += TURN_SPEED;
+            }
+        }
+
+        let turn = turn.clamp(-TURN_SPEED, TURN_SPEED);
+        let drive = drive.clamp(-1.0, 1.0);
 
         let velocity = vec2(self.heading.cos(), self.heading.sin()) * MOVE_SPEED * drive;
         let body = &mut physics.world.bodies[self.body];

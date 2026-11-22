@@ -1,0 +1,5 @@
+# The `gamepads` crate's web backend imports `getGamepads`/`playEffect` host
+# functions that the JS plugin (web/gamepads.js) provides at runtime, so
+# undefined symbols must be linked as wasm imports instead of failing the link.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--import-undefined"]
